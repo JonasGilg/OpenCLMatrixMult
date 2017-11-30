@@ -168,10 +168,11 @@ object Main {
 }
 
 fun main(args: Array<String>) {
-	Main.addVectors(4096 * 4096)
+	val numElements = 4096
+	Main.addVectors(numElements)
 	println("###############\n")
-	Main.multiplyMatrices(2048)
+	Main.multiplyMatrices(numElements)
 	println("###############\n")
-	Main.multiplyMatricesShared(2048)
+	Main.multiplyMatricesShared(numElements)
 }
 

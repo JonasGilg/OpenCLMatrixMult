@@ -17,7 +17,8 @@ object Main {
 	private var maxLocalWorkSize2D = 8
 
 	init {
-		context = CLContext.create(CLPlatform.listCLPlatforms()[0])({
+		CLPlatform.listCLPlatforms().forEach { println(it) }
+		context = clContext {
 			val device = maxFlopsDevice
 			println("$device\n")
 			queue = device.createCommandQueue()
@@ -25,7 +26,7 @@ object Main {
 
 			maxLocalWorkSize1D = device.maxWorkGroupSize
 			maxLocalWorkSize2D = sqrt(device.maxWorkGroupSize.toDouble()).toInt()
-		})
+		}
 	}
 
 	fun addVectors(elementCount: Int) {
@@ -115,8 +116,8 @@ object Main {
 				!bufferA
 				!bufferB
 				!bufferC
-				nullArg(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
-				nullArg(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
+				local(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
+				local(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
 			}
 
 			val completeTime = measureTimeMillis {
@@ -169,10 +170,9 @@ object Main {
 
 fun main(args: Array<String>) {
 	val numElements = 4096
-	Main.addVectors(numElements)
+	Main.addVectors(numElements * numElements)
 	println("###############\n")
 	Main.multiplyMatrices(numElements)
 	println("###############\n")
 	Main.multiplyMatricesShared(numElements)
 }
-

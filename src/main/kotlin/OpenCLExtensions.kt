@@ -1,6 +1,12 @@
 import com.jogamp.opencl.*
 import java.io.InputStream
 
+fun clContext(platform: Int = 0, op: CLContext.() -> Unit): CLContext {
+	val context = CLContext.create(CLPlatform.listCLPlatforms()[platform])
+	context.op()
+	return context
+}
+
 fun CLCommandQueue.enqueue(op: CLCommandQueue.() -> Unit) = op()
 
 fun CLCommandQueue.writeBuffer(buffer: CLBuffer<*>, blockingRead: Boolean = false): CLCommandQueue
@@ -34,7 +40,7 @@ class KernelDSL(private val kernel: CLKernel) {
 		kernel.putArg(this)
 	}
 
-	fun nullArg(size: Int) {
+	fun local(size: Int) {
 		kernel.putNullArg(size)
 	}
 

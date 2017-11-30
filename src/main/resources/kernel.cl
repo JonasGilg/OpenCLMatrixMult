@@ -10,8 +10,8 @@ kernel void VectorAdd(global const float* a, global const float* b, global float
 }
 
 kernel void MultiplyMatrices(global const float* a, global const float* b, global float* c) {
-    int row = get_global_id(0);
-    int col = get_global_id(1);
+    int row = get_global_id(1);
+    int col = get_global_id(0);
 
     int dimension = get_global_size(0);
 
@@ -23,23 +23,24 @@ kernel void MultiplyMatrices(global const float* a, global const float* b, globa
 }
 
 kernel void MultiplyMatricesShared(global const float* a, global const float* b, global float* c, local float* aShared, local float* bShared) {
-    int rowGlobal = get_global_id(0);
-    int colGlobal = get_global_id(1);
+    int rowGlobal = get_global_id(1);
+    int colGlobal = get_global_id(0);
 
     int workSize = get_local_size(0);
     int dimension = get_global_size(0);
+    int gridSize = get_num_groups(0);
 
-    int rowLocal = get_local_id(0);
-    int colLocal = get_local_id(1);
+    int rowLocal = get_local_id(1);
+    int colLocal = get_local_id(0);
 
     float sum = 0.0;
-    for(int i = 0; i < get_num_groups(0); ++i) {
+    for(int i = 0; i < gridSize; ++i) {
         aShared[rowLocal * workSize + colLocal] = a[rowGlobal * dimension + i * workSize + colLocal];
         bShared[rowLocal * workSize + colLocal] = b[(i * workSize + rowLocal) * dimension + colGlobal];
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for(int j = 0; j < dimension; ++j)
+        for(int j = 0; j < workSize; ++j)
             sum += aShared[rowLocal * workSize + j] * bShared[j * workSize + colLocal];
 
         barrier(CLK_LOCAL_MEM_FENCE);

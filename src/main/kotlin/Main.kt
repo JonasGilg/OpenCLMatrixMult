@@ -170,8 +170,8 @@ object Main {
 fun main(args: Array<String>) {
 	Main.addVectors(4096 * 4096)
 	println("###############\n")
-	Main.multiplyMatrices(1024)
+	Main.multiplyMatrices(2048)
 	println("###############\n")
-	Main.multiplyMatricesShared(32)
+	Main.multiplyMatricesShared(2048)
 }
 

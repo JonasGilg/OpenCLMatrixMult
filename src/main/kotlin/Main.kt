@@ -172,6 +172,6 @@ fun main(args: Array<String>) {
 	println("###############\n")
 	Main.multiplyMatrices(1024)
 	println("###############\n")
-	Main.multiplyMatricesShared(64)
+	Main.multiplyMatricesShared(32)
 }
 

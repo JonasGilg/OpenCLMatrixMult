@@ -169,7 +169,7 @@ object Main {
 }
 
 fun main(args: Array<String>) {
-	val numElements = 4096
+	val numElements = 2048
 	Main.addVectors(numElements * numElements)
 	println("###############\n")
 	Main.multiplyMatrices(numElements)

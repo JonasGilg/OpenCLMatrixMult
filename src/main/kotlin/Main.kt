@@ -19,13 +19,11 @@ object Main {
 	init {
 		CLPlatform.listCLPlatforms().forEach { println(it) }
 		context = clContext {
-			val device = maxFlopsDevice
-			println("$device\n")
-			queue = device.createCommandQueue()
+			queue = maxFlopsDevice.createCommandQueue()
 			program = createProgram("kernel.cl".asFileStream()).build()
 
-			maxLocalWorkSize1D = device.maxWorkGroupSize
-			maxLocalWorkSize2D = sqrt(device.maxWorkGroupSize.toDouble()).toInt()
+			maxLocalWorkSize1D = maxFlopsDevice.maxWorkGroupSize
+			maxLocalWorkSize2D = sqrt(maxFlopsDevice.maxWorkGroupSize.toDouble()).toInt()
 		}
 	}
 

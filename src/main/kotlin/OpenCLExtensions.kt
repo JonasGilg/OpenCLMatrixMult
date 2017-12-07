@@ -32,12 +32,12 @@ fun CLProgram.createCLKernel(kernelName: String, op: KernelDSL.() -> Unit): CLKe
 }
 
 class KernelDSL(private val kernel: CLKernel) {
-	operator fun CLBuffer<*>.not() {
-		kernel.putArg(this)
+	fun arg(buffer: CLBuffer<*>) {
+		kernel.putArg(buffer)
 	}
 
-	operator fun Int.not() {
-		kernel.putArg(this)
+	fun arg(arg: Int) {
+		kernel.putArg(arg)
 	}
 
 	fun local(size: Int) {

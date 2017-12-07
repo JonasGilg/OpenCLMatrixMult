@@ -39,10 +39,10 @@ object Main {
 			fillBuffer(bufferB.buffer)
 
 			val kernel = program.createCLKernel("VectorAdd") {
-				!bufferA
-				!bufferB
-				!bufferC
-				!elementCount
+				arg(bufferA)
+				arg(bufferB)
+				arg(bufferC)
+				arg(elementCount)
 			}
 
 			val completeTime = measureTimeMillis {
@@ -77,9 +77,9 @@ object Main {
 			fillBuffer(bufferB.buffer)
 
 			val kernel = program.createCLKernel("MultiplyMatrices") {
-				!bufferA
-				!bufferB
-				!bufferC
+				arg(bufferA)
+				arg(bufferB)
+				arg(bufferC)
 			}
 
 			val completeTime = measureTimeMillis {
@@ -111,9 +111,9 @@ object Main {
 			fillBuffer(bufferB.buffer)
 
 			val kernel = program.createCLKernel("MultiplyMatricesShared") {
-				!bufferA
-				!bufferB
-				!bufferC
+				arg(bufferA)
+				arg(bufferB)
+				arg(bufferC)
 				local(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
 				local(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
 			}

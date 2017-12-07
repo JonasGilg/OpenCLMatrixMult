@@ -12,19 +12,130 @@ object Main {
 	private val context: CLContext
 	private lateinit var queue: CLCommandQueue
 	private lateinit var program: CLProgram
+	private lateinit var initKernel: CLKernel
+	private lateinit var jacobiStepKernelA: CLKernel
+	private lateinit var jacobiStepKernelB: CLKernel
+	private lateinit var differenceKernel: CLKernel
 
 	private var maxLocalWorkSize1D = 256
 	private var maxLocalWorkSize2D = 8
 
 	init {
 		CLPlatform.listCLPlatforms().forEach { println(it) }
+
 		context = clContext {
 			queue = maxFlopsDevice.createCommandQueue()
 			program = createProgram("kernel.cl".asFileStream()).build()
 
 			maxLocalWorkSize1D = maxFlopsDevice.maxWorkGroupSize
 			maxLocalWorkSize2D = sqrt(maxFlopsDevice.maxWorkGroupSize.toDouble()).toInt()
+
+			initKernel = program.createCLKernel("init")
+			jacobiStepKernelA = program.createCLKernel("jacobiStep")
+			jacobiStepKernelB = program.createCLKernel("jacobiStep")
+			differenceKernel = program.createCLKernel("difference")
 		}
+	}
+
+	fun jakobi(dimension: Int) {
+		context {
+			val localWorkSize2D = min(dimension, maxLocalWorkSize2D)
+			val globalWorkSizeD = roundUp(localWorkSize2D, dimension)
+			val globalWorkSizeDxD = globalWorkSizeD * globalWorkSizeD
+
+			val xOld = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
+			val xNew = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
+
+			val A = createFloatBuffer(globalWorkSizeDxD, CLMemory.Mem.READ_ONLY)
+			val b = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_ONLY)
+			val diff = createFloatBuffer(globalWorkSizeD / localWorkSize2D, CLMemory.Mem.READ_WRITE)
+
+			fillA(dimension, A.buffer)
+			fillBuffer(b.buffer)
+
+			initKernel.putArg(xOld)
+
+			jacobiStepKernelA
+					.putArg(A)
+					.putArg(b)
+					.putArg(xNew)
+					.putArg(xOld)
+
+			jacobiStepKernelB
+					.putArg(A)
+					.putArg(b)
+					.putArg(xOld)
+					.putArg(xNew)
+
+			differenceKernel
+					.putArg(xOld)
+					.putArg(xNew)
+					.putArg(diff)
+					.putNullArg(localWorkSize2D * Sizeof.cl_float)
+
+			queue.enqueue {
+				//kernel1DRange(initKernel, 0, dimension.toLong(), dimension.toLong())
+
+				writeBuffer(A)
+				writeBuffer(b)
+				writeBuffer(xNew)
+				writeBuffer(xOld)
+				writeBuffer(diff)
+
+				flush()
+				finish()
+			}
+
+			var currIt = 0
+			val maxIt = 100
+			val eps = 0.0001
+			while (reduceDiffBuffer(diff.buffer) > eps && currIt++ < maxIt) {
+				queue.enqueue {
+					kernel1DRange(jacobiStepKernelA, 0, globalWorkSizeDxD.toLong(), localWorkSize2D.toLong())
+					flush()
+					finish()
+
+					kernel1DRange(jacobiStepKernelB, 0, globalWorkSizeDxD.toLong(), localWorkSize2D.toLong())
+					flush()
+					finish()
+
+					kernel1DRange(differenceKernel, 0, globalWorkSizeD.toLong(), dimension.toLong())
+					readBuffer(diff)
+					flush()
+					finish()
+				}
+			}
+
+			queue.enqueue {
+				readBuffer(xOld)
+				flush()
+				finish()
+			}
+
+			while (xOld.buffer.hasRemaining())
+				println(xOld.buffer.get())
+		}
+	}
+
+	fun reduceDiffBuffer(floatBuffer: FloatBuffer) : Float {
+		var sum = 0.0f
+		while (floatBuffer.hasRemaining()) {
+			sum += floatBuffer.get()
+		}
+
+		floatBuffer.rewind()
+		return sum
+	}
+
+	fun fillA(dimension: Int, buffer: FloatBuffer) {
+		val random = Random(12345)
+		while (buffer.remaining() != 0)
+			buffer.put(random.nextFloat() * 100)
+		buffer.rewind()
+
+		for (i in 0 until dimension)
+			buffer.put(i * dimension + i, random.nextFloat() * 1000000)
+		buffer.rewind()
 	}
 
 	fun addVectors(elementCount: Int) {
@@ -167,10 +278,5 @@ object Main {
 }
 
 fun main(args: Array<String>) {
-	val numElements = 2048
-	Main.addVectors(numElements * numElements)
-	println("###############\n")
-	Main.multiplyMatrices(numElements)
-	println("###############\n")
-	Main.multiplyMatricesShared(numElements)
+	Main.jakobi(16)
 }

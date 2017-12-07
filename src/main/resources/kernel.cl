@@ -1,5 +1,49 @@
 
 
+kernel void init(global float* x) {
+    x[get_global_id(0)] = 0;
+}
+
+kernel void jacobiStep(global float* a, global float* b, global float* xNew, global float* xOld) {
+    int i = get_global_id(0);
+    int N = get_global_size(0);
+
+    float sum = 0.0;
+    for(int k = 0; k < N; ++k) {
+        if(k != i) {
+            sum = a[i * N + k] * xOld[k];
+        }
+    }
+
+    xNew[i] = (b[i] - sum) / a[i * N + i];
+}
+
+kernel void difference(global float* xOld, global float* xNew, global float* diff, local float* partialSum) {
+    int i = get_global_id(0);
+    int block = get_local_size(0);
+
+    partialSum[i] = fabs(xOld[i] - xNew[i]);
+
+    for(int stride = block >> 1; stride >= 32; stride >>= 1) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        if(block < stride)
+            partialSum[i] += partialSum[i + stride];
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if(i < 32) {
+        partialSum[block] += partialSum[block + 16];
+        partialSum[block] += partialSum[block + 8];
+        partialSum[block] += partialSum[block + 4];
+        partialSum[block] += partialSum[block + 2];
+        partialSum[block] += partialSum[block + 1];
+    }
+
+    diff[block] = partialSum[0];
+}
+
+/*
 kernel void VectorAdd(global const float* a, global const float* b, global float* c, int numElements) {
     int iGID = get_global_id(0);
 
@@ -47,4 +91,4 @@ kernel void MultiplyMatricesShared(global const float* a, global const float* b,
     }
 
     c[rowGlobal * dimension + colGlobal] = sum;
-}
+}*/

@@ -19,9 +19,9 @@ fun CLCommandQueue.kernel1DRange(kernel: CLKernel, globalWorkOffset: Long, globa
 		= put1DRangeKernel(kernel, globalWorkOffset, globalWorkSize, localWorkSize)
 
 fun CLCommandQueue.kernel2DRange(kernel: CLKernel,
-                                         globalWorkOffsetX: Long, globalWorkOffsetY: Long,
-                                         globalWorkSizeX: Long, globalWorkSizeY: Long,
-                                         localWorkSizeX: Long, localWorkSizeY: Long): CLCommandQueue
+                                 globalWorkOffsetX: Long, globalWorkOffsetY: Long,
+                                 globalWorkSizeX: Long, globalWorkSizeY: Long,
+                                 localWorkSizeX: Long, localWorkSizeY: Long): CLCommandQueue
 		= put2DRangeKernel(kernel, globalWorkOffsetX, globalWorkOffsetY, globalWorkSizeX, globalWorkSizeY, localWorkSizeX, localWorkSizeY)
 
 
@@ -31,20 +31,24 @@ fun CLProgram.createCLKernel(kernelName: String, op: KernelDSL.() -> Unit): CLKe
 	return kernel
 }
 
+fun CLKernel.args(op: KernelDSL.() -> Unit) {
+	KernelDSL(this).op()
+}
+
 class KernelDSL(private val kernel: CLKernel) {
-	fun arg(buffer: CLBuffer<*>) {
+	fun KernelDSL.arg(buffer: CLBuffer<*>) {
 		kernel.putArg(buffer)
 	}
 
-	fun arg(arg: Int) {
+	fun KernelDSL.arg(arg: Int) {
 		kernel.putArg(arg)
 	}
 
-	fun local(size: Int) {
+	fun KernelDSL.local(size: Int) {
 		kernel.putNullArg(size)
 	}
 
-	fun rewind() {
+	fun KernelDSL.rewind() {
 		kernel.rewind()
 	}
 }
@@ -59,3 +63,25 @@ object Resource
 fun String.asFileStream(): InputStream = Resource.javaClass.getResourceAsStream(this)
 
 fun Float.format(padding: Int, digits: Int) = String.format("%$padding.${digits}f", this)
+
+fun Int.getDigits(): Array<Int> {
+	val digits = mutableListOf<Int>()
+	getDigits(this, digits)
+	return digits.toTypedArray()
+}
+
+private fun getDigits(i: Int, digits: MutableList<Int>) {
+	if(i / 10 > 0) {
+		getDigits(i / 10, digits)
+	}
+	digits.add(i % 10)
+}
+
+fun Int.toSubscriptString(): String {
+	val digits = getDigits()
+	return buildString {
+		digits.forEach {
+			append('\u2080' + it)
+		}
+	}
+}

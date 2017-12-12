@@ -6,6 +6,7 @@ import kotlin.math.ceil
 import kotlin.math.log10
 import kotlin.math.min
 import kotlin.math.sqrt
+import kotlin.system.measureTimeMillis
 
 
 object Main {
@@ -25,6 +26,8 @@ object Main {
 	init {
 		context = clContext {
 			println(platform)
+			println(maxFlopsDevice)
+			println()
 			queue = maxFlopsDevice.createCommandQueue()
 			program = createProgram("kernel.cl".asFileStream()).build()
 
@@ -60,25 +63,28 @@ object Main {
 
 			initKernel.putArg(xOld)
 
-			jacobiStepKernelA
-					.putArg(A)
-					.putArg(b)
-					.putArg(xNew)
-					.putArg(xOld)
-					.putArg(dimension)
+			jacobiStepKernelA.args {
+				arg(A)
+				arg(b)
+				arg(xNew)
+				arg(xOld)
+				arg(dimension)
+			}
 
-			jacobiStepKernelB
-					.putArg(A)
-					.putArg(b)
-					.putArg(xOld)
-					.putArg(xNew)
-					.putArg(dimension)
+			jacobiStepKernelB.args {
+				arg(A)
+				arg(b)
+				arg(xOld)
+				arg(xNew)
+				arg(dimension)
+			}
 
-			differenceKernel
-					.putArg(xOld)
-					.putArg(xNew)
-					.putArg(diff)
-					.putNullArg(localWorkSizeD * Sizeof.cl_float)
+			differenceKernel.args {
+				arg(xOld)
+				arg(xNew)
+				arg(diff)
+				local(localWorkSizeD * Sizeof.cl_float)
+			}
 
 			queue.enqueue {
 				kernel1DRange(initKernel, 0, dimension.toLong(), dimension.toLong())
@@ -121,7 +127,7 @@ object Main {
 
 			println("Result after $currIt steps:")
 			for (i in 0 until dimension) {
-				val extension = if (dimension < 27) "${'a' + i}" else "x$i"
+				val extension = if (dimension < 27) "${'a' + i}" else "x${i.toSubscriptString()}"
 				print("$extension = ${String.format("%f", xOld.buffer[i])}${if (i < dimension - 1) ", " else ""}")
 			}
 		}
@@ -166,7 +172,7 @@ object Main {
 	private fun getEquationAsString(a: FloatBuffer, b: FloatBuffer, dimension: Int): String = buildString {
 		for (row in 0 until dimension) {
 			for (col in 0 until dimension) {
-				val extension = if (dimension < 27) "${'a' + col}" else "x$col"
+				val extension = if (dimension < 27) "${'a' + col}" else "x${col.toSubscriptString()}"
 				if (col != 0) append(" ")
 				append("${a[row * dimension + col].format(ceil(log10((dimension * dimension + 2) * randomRange)).toInt() + 5, 4)}$extension ")
 				if (col < dimension - 1) append('+')

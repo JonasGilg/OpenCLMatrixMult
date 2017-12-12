@@ -3,9 +3,10 @@ import com.jogamp.opencl.*
 import org.jocl.Sizeof
 import java.nio.FloatBuffer
 import java.util.*
+import kotlin.math.ceil
+import kotlin.math.log10
 import kotlin.math.min
 import kotlin.math.sqrt
-import kotlin.system.measureTimeMillis
 
 
 object Main {
@@ -21,9 +22,8 @@ object Main {
 	private var maxLocalWorkSize2D = 8
 
 	init {
-		CLPlatform.listCLPlatforms().forEach { println(it) }
-
 		context = clContext {
+			println(platform)
 			queue = maxFlopsDevice.createCommandQueue()
 			program = createProgram("kernel.cl".asFileStream()).build()
 
@@ -37,7 +37,7 @@ object Main {
 		}
 	}
 
-	fun jakobi(dimension: Int) {
+	fun jacobi(dimension: Int) {
 		context {
 			val localWorkSize2D = min(dimension, maxLocalWorkSize2D)
 			val globalWorkSizeD = roundUp(localWorkSize2D, dimension)
@@ -51,10 +51,9 @@ object Main {
 			val diff = createFloatBuffer(globalWorkSizeD / localWorkSize2D, CLMemory.Mem.READ_WRITE)
 
 			fillA(dimension, A.buffer)
-			println(getMatrixAsString(A.buffer, dimension))
-
 			fillBuffer(b.buffer)
-			println(getVectorAsString(b.buffer))
+
+			println(getEquationAsString(A.buffer, b.buffer, dimension))
 
 			initKernel.putArg(xOld)
 
@@ -63,12 +62,14 @@ object Main {
 					.putArg(b)
 					.putArg(xNew)
 					.putArg(xOld)
+					.putArg(dimension)
 
 			jacobiStepKernelB
 					.putArg(A)
 					.putArg(b)
 					.putArg(xOld)
 					.putArg(xNew)
+					.putArg(dimension)
 
 			differenceKernel
 					.putArg(xOld)
@@ -77,7 +78,7 @@ object Main {
 					.putNullArg(localWorkSize2D * Sizeof.cl_float)
 
 			queue.enqueue {
-				//kernel1DRange(initKernel, 0, dimension.toLong(), dimension.toLong())
+				kernel1DRange(initKernel, 0, dimension.toLong(), dimension.toLong())
 
 				writeBuffer(A)
 				writeBuffer(b)
@@ -91,7 +92,7 @@ object Main {
 
 			var currIt = 0
 			val maxIt = 100
-			val eps = 0.1f
+			val eps = 1e-64
 			do {
 				queue.enqueue {
 					kernel1DRange(jacobiStepKernelA, 0, globalWorkSizeDxD.toLong(), localWorkSize2D.toLong())
@@ -102,7 +103,7 @@ object Main {
 					flush()
 					finish()
 
-					kernel1DRange(differenceKernel, 0, globalWorkSizeD.toLong(), dimension.toLong())
+					kernel1DRange(differenceKernel, 0, globalWorkSizeD.toLong(), localWorkSize2D.toLong())
 					readBuffer(diff)
 					flush()
 					finish()
@@ -115,13 +116,14 @@ object Main {
 				finish()
 			}
 
-			while (xOld.buffer.hasRemaining())
-				println(xOld.buffer.get())
+			println("Result after $currIt steps:")
+			for (i in 0 until dimension)
+				print("x$i = ${String.format("%f", xOld.buffer[i])}${if(i < dimension - 1) ", " else ""}")
 		}
 	}
 
-	fun reduceDiffBuffer(floatBuffer: FloatBuffer) : Float {
-		var sum = 0.0f
+	fun reduceDiffBuffer(floatBuffer: FloatBuffer): Double {
+		var sum = 0.0
 		while (floatBuffer.hasRemaining()) {
 			sum += floatBuffer.get()
 		}
@@ -137,47 +139,11 @@ object Main {
 		buffer.rewind()
 
 		for (i in 0 until dimension)
-			buffer.put(i * dimension + i, (random.nextFloat() + 5) * 100)
+			buffer.put(i * dimension + i, (1 + random.nextFloat() + dimension * dimension) * 100)
 		buffer.rewind()
 	}
 
-	fun multiplyMatricesShared(dimension: Int) {
-		context {
-			val localWorkSize2D = min(dimension, maxLocalWorkSize2D)
-			val globalWorkSizeD = roundUp(localWorkSize2D, dimension)
-			val globalWorkSizeDxD = globalWorkSizeD * globalWorkSizeD
-
-			val bufferA = createFloatBuffer(globalWorkSizeDxD, CLMemory.Mem.READ_ONLY)
-			val bufferB = createFloatBuffer(globalWorkSizeDxD, CLMemory.Mem.READ_ONLY)
-			val bufferC = createFloatBuffer(globalWorkSizeDxD, CLMemory.Mem.WRITE_ONLY)
-
-			fillBuffer(bufferA.buffer)
-			fillBuffer(bufferB.buffer)
-
-			val kernel = program.createCLKernel("MultiplyMatricesShared") {
-				arg(bufferA)
-				arg(bufferB)
-				arg(bufferC)
-				local(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
-				local(localWorkSize2D * localWorkSize2D * Sizeof.cl_float)
-			}
-
-			val completeTime = measureTimeMillis {
-				queue.enqueue {
-					writeBuffer(bufferA)
-					writeBuffer(bufferB)
-					kernel2DRange(kernel, 0, 0, globalWorkSizeD.toLong(), globalWorkSizeD.toLong(), localWorkSize2D.toLong(), localWorkSize2D.toLong())
-					readBuffer(bufferC)
-				}
-			}
-
-			println("Shared matrix multiplication of two matrices with dimension $globalWorkSizeD took $completeTime ms!\n")
-			if(dimension < 16)
-				println(getMatrixResult(bufferA.buffer, bufferB.buffer, bufferC.buffer, globalWorkSizeD))
-		}
-	}
-
-	private fun getMatrixAsString(a: FloatBuffer, dimension: Int) : String = buildString {
+	private fun getMatrixAsString(a: FloatBuffer, dimension: Int): String = buildString {
 		for (row in 0 until dimension) {
 			append("[")
 			for (col in 0 until dimension)
@@ -186,28 +152,23 @@ object Main {
 		}
 	}
 
-	private fun getVectorAsString(v: FloatBuffer) : String = buildString {
+	private fun getVectorAsString(v: FloatBuffer): String = buildString {
 		while (v.hasRemaining())
 			append("[ ${v.get().format(6, 2)} ]\n")
 		v.rewind()
 	}
 
-	private fun getMatrixResult(a: FloatBuffer, b: FloatBuffer, c: FloatBuffer, dimension: Int): String {
-		val stringBuilder = StringBuilder()
+	private fun getEquationAsString(a: FloatBuffer, b: FloatBuffer, dimension: Int): String = buildString {
 		for (row in 0 until dimension) {
-			stringBuilder.append("[")
-			for (col in 0 until dimension)
-				stringBuilder.append(" ${a[row * dimension + col].format(5, 2)} ")
-			stringBuilder.append("] * [")
-			for (col in 0 until dimension)
-				stringBuilder.append(" ${b[row * dimension + col].format(5, 2)} ")
-			stringBuilder.append("] = [")
-			for (col in 0 until dimension)
-				stringBuilder.append(" ${c[row * dimension + col].format(8, 2)} ")
-			stringBuilder.append("]\n")
+			for (col in 0 until dimension) {
+				if(col != 0) append(" ")
+				append("${a[row * dimension + col].format(ceil(log10((dimension * dimension + 2) * 100.0)).toInt() + 5, 4)}x$col ")
+				if (col < dimension - 1) append('+')
+			}
+			append("= ${b[row].format(7, 4)}\n")
 		}
-		return stringBuilder.toString()
 	}
+
 
 	private fun roundUp(localWorkSize: Int, elements: Int): Int {
 		val r = elements % localWorkSize
@@ -226,5 +187,5 @@ object Main {
 }
 
 fun main(args: Array<String>) {
-	Main.jakobi(1)
+	Main.jacobi(16)
 }

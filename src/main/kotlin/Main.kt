@@ -174,7 +174,7 @@ object Main {
 			for (col in 0 until dimension) {
 				val extension = if (dimension < 27) "${'a' + col}" else "x${col.toSubscriptString()}"
 				if (col != 0) append(" ")
-				append("${a[row * dimension + col].format(ceil(log10((dimension * dimension + 2) * randomRange)).toInt() + 5, 4)}$extension ")
+				append("${a[row * dimension + col].format(ceil(log10((dimension * dimension + 2) * randomRange)).toInt() + 5, 4)} $extension ")
 				if (col < dimension - 1) append('+')
 			}
 			append("= ${b[row].format(7, 4)}\n")
@@ -199,7 +199,7 @@ object Main {
 }
 
 fun main(args: Array<String>) {
-	Main.jacobi(1024)
+	Main.jacobi(32)
 }
 
 /*

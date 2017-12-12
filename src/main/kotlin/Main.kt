@@ -21,6 +21,8 @@ object Main {
 	private var maxLocalWorkSize1D = 256
 	private var maxLocalWorkSize2D = 8
 
+	private const val randomRange = 100.0
+
 	init {
 		context = clContext {
 			println(platform)
@@ -39,8 +41,9 @@ object Main {
 
 	fun jacobi(dimension: Int) {
 		context {
-			val localWorkSize2D = min(dimension, maxLocalWorkSize2D)
-			val globalWorkSizeD = roundUp(localWorkSize2D, dimension)
+			val localWorkSizeD = min(dimension, maxLocalWorkSize1D)
+			val localWorkSizeDxD = localWorkSizeD * localWorkSizeD
+			val globalWorkSizeD = roundUp(localWorkSizeD, dimension)
 			val globalWorkSizeDxD = globalWorkSizeD * globalWorkSizeD
 
 			val xOld = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
@@ -48,7 +51,7 @@ object Main {
 
 			val A = createFloatBuffer(globalWorkSizeDxD, CLMemory.Mem.READ_ONLY)
 			val b = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_ONLY)
-			val diff = createFloatBuffer(globalWorkSizeD / localWorkSize2D, CLMemory.Mem.READ_WRITE)
+			val diff = createFloatBuffer(globalWorkSizeD / localWorkSizeD, CLMemory.Mem.READ_WRITE)
 
 			fillA(dimension, A.buffer)
 			fillBuffer(b.buffer)
@@ -75,7 +78,7 @@ object Main {
 					.putArg(xOld)
 					.putArg(xNew)
 					.putArg(diff)
-					.putNullArg(localWorkSize2D * Sizeof.cl_float)
+					.putNullArg(localWorkSizeD * Sizeof.cl_float)
 
 			queue.enqueue {
 				kernel1DRange(initKernel, 0, dimension.toLong(), dimension.toLong())
@@ -92,18 +95,18 @@ object Main {
 
 			var currIt = 0
 			val maxIt = 100
-			val eps = 1e-64
+			val eps = 1e-10
 			do {
 				queue.enqueue {
-					kernel1DRange(jacobiStepKernelA, 0, globalWorkSizeDxD.toLong(), localWorkSize2D.toLong())
+					kernel1DRange(jacobiStepKernelA, 0, globalWorkSizeDxD.toLong(), localWorkSizeD.toLong())
 					flush()
 					finish()
 
-					kernel1DRange(jacobiStepKernelB, 0, globalWorkSizeDxD.toLong(), localWorkSize2D.toLong())
+					kernel1DRange(jacobiStepKernelB, 0, globalWorkSizeDxD.toLong(), localWorkSizeD.toLong())
 					flush()
 					finish()
 
-					kernel1DRange(differenceKernel, 0, globalWorkSizeD.toLong(), localWorkSize2D.toLong())
+					kernel1DRange(differenceKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
 					readBuffer(diff)
 					flush()
 					finish()
@@ -135,11 +138,11 @@ object Main {
 	fun fillA(dimension: Int, buffer: FloatBuffer) {
 		val random = Random()
 		while (buffer.remaining() != 0)
-			buffer.put(random.nextFloat() * 100)
+			buffer.put(random.nextFloat() * randomRange.toFloat())
 		buffer.rewind()
 
 		for (i in 0 until dimension)
-			buffer.put(i * dimension + i, (1 + random.nextFloat() + dimension * dimension) * 100)
+			buffer.put(i * dimension + i, ((1 + random.nextFloat() + dimension * dimension) * randomRange).toFloat())
 		buffer.rewind()
 	}
 
@@ -162,7 +165,7 @@ object Main {
 		for (row in 0 until dimension) {
 			for (col in 0 until dimension) {
 				if(col != 0) append(" ")
-				append("${a[row * dimension + col].format(ceil(log10((dimension * dimension + 2) * 100.0)).toInt() + 5, 4)}x$col ")
+				append("${a[row * dimension + col].format(ceil(log10((dimension * dimension + 2) * randomRange)).toInt() + 5, 4)}x$col ")
 				if (col < dimension - 1) append('+')
 			}
 			append("= ${b[row].format(7, 4)}\n")
@@ -181,11 +184,11 @@ object Main {
 	private fun fillBuffer(buffer: FloatBuffer) {
 		val random = Random()
 		while (buffer.remaining() != 0)
-			buffer.put(random.nextFloat() * 100)
+			buffer.put(random.nextFloat() * randomRange.toFloat())
 		buffer.rewind()
 	}
 }
 
 fun main(args: Array<String>) {
-	Main.jacobi(16)
+	Main.jacobi(1024)
 }

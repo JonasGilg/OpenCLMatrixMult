@@ -8,10 +8,10 @@ kernel void jacobiStep(global float* a, global float* b, global float* xNew, glo
     int row = get_global_id(0) / dimension;
     int N = dimension;
 
-    float sum = 0.0;
+    float sum = 0.0f;
     for(int col = 0; col < N; ++col) {
         if(col != row) {
-            sum = a[row * N + col] * xOld[col];
+            sum += a[row * N + col] * xOld[col];
         }
     }
 
@@ -42,4 +42,28 @@ kernel void difference(global float* xOld, global float* xNew, global float* dif
     }
 
     diff[get_group_id(0)] = partialSum[0];
+}
+
+kernel void initRHS(global float* y, global float* rhs, float h) {
+    int i = get_global_id(0);
+
+    if(i == 0 || i == get_global_size(0)) {
+        rhs[i] = 0.0f;
+    } else {
+        rhs[i] = (6.0f / h * h) * (y[i + 1] - 2 * y[i] + y[i - 1]);
+    }
+}
+
+kernel void jacobiSplineStep(global float* rhs, global float* cOld, global float* cNew) {
+    int i = get_global_id(0);
+
+    cNew[i] = (rhs[i] - cOld[i - 1] - cOld[i + 1]) / 4.0f;
+}
+
+kernel void computeAB(global float* y, global float* c, global float* a, global float* b, float h) {
+    int i = get_global_id(0);
+
+    float bi = (1.0f / h) * (y[i] - y[i - 1]) - (h / 6.0f) * (c[i] - c[i - 1]);
+    b[i] = bi;
+    a[i] = y[i - 1] + (0.5f * bi * h) - (0.166666667f * c[i - 1] * h * h);
 }

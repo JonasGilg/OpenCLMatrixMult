@@ -1,5 +1,7 @@
 import com.jogamp.opencl.*
+import java.io.FileNotFoundException
 import java.io.InputStream
+import java.lang.invoke.MethodHandles
 
 fun clContext(platform: Int = 0, op: CLContext.() -> Unit): CLContext {
 	val context = CLContext.create(CLPlatform.listCLPlatforms()[platform])
@@ -44,6 +46,10 @@ class KernelDSL(private val kernel: CLKernel) {
 		kernel.putArg(arg)
 	}
 
+	fun KernelDSL.arg(arg: Float) {
+		kernel.putArg(arg)
+	}
+
 	fun KernelDSL.local(size: Int) {
 		kernel.putNullArg(size)
 	}
@@ -58,9 +64,8 @@ operator fun CLContext.invoke(op: CLContext.() -> Unit): CLContext {
 	return this
 }
 
-object Resource
-
-fun String.asFileStream(): InputStream = Resource.javaClass.getResourceAsStream(this)
+fun String.asFileStream(): InputStream = loadFileStream(this)
+fun loadFileStream(path:String): InputStream = MethodHandles.lookup().lookupClass().getResourceAsStream(path) ?: throw FileNotFoundException()
 
 fun Float.format(padding: Int, digits: Int) = String.format("%$padding.${digits}f", this)
 

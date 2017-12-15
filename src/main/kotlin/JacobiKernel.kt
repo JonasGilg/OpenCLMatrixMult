@@ -9,7 +9,7 @@ import kotlin.math.sqrt
 import kotlin.system.measureTimeMillis
 
 
-object Main {
+object JacobiKernel {
 	private val context: CLContext
 	private lateinit var queue: CLCommandQueue
 	private lateinit var program: CLProgram
@@ -173,12 +173,14 @@ object Main {
 		}
 	}
 
-	fun jacobiSpline(dimension: Int, h: Float) {
+	fun jacobiSpline(yArray: DoubleArray, h: Double) = jacobiSpline(yArray.size, h.toFloat(), yArray)
+
+	fun jacobiSpline(dimension: Int, h: Float, yArray: DoubleArray? = null) : JacobiInterpolator {
+		var result: JacobiInterpolator? = null
+
 		context {
 			val localWorkSizeD = min(dimension, maxLocalWorkSize1D)
-			val localWorkSizeDxD = localWorkSizeD * localWorkSizeD
 			val globalWorkSizeD = roundUp(localWorkSizeD, dimension)
-			val globalWorkSizeDxD = globalWorkSizeD * globalWorkSizeD
 
 			val a = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
 			val b = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
@@ -190,7 +192,17 @@ object Main {
 
 			val diff = createFloatBuffer(globalWorkSizeD / localWorkSizeD, CLMemory.Mem.READ_WRITE)
 
-			fillBuffer(y.buffer)
+			if(yArray == null) {
+				fillBuffer(y.buffer)
+			} else {
+				yArray.forEach {
+					y.buffer.put(it.toFloat())
+				}
+
+				y.buffer.rewind()
+			}
+
+			//y.buffer.toFloatArray().forEach { println(it) }
 
 			initKernel.args {
 				arg(cOld)
@@ -255,11 +267,11 @@ object Main {
 			queue.enqueue {
 				writeBuffer(y)
 				writeBuffer(rhs)
-				kernel1DRange(initRHSKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
-
 				writeBuffer(a)
 				writeBuffer(b)
 				writeBuffer(diff)
+
+				kernel1DRange(initRHSKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
 
 				flush()
 				finish()
@@ -287,17 +299,31 @@ object Main {
 
 			queue.enqueue {
 				kernel1DRange(computeABKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
+
 				readBuffer(a)
 				readBuffer(b)
 				readBuffer(cOld)
+
 				flush()
 				finish()
 			}
 
-			for (i in 0 until dimension) {
-				println("${String.format("%4d", i)} -> a = ${a.buffer.get()}, b = ${b.buffer.get()}, c = ${cOld.buffer.get()}, y = ${y.buffer.get()}")
-			}
+			result = JacobiInterpolator(
+					a.buffer.toDoubleArray(),
+					b.buffer.toDoubleArray(),
+					cOld.buffer.toDoubleArray(),
+					h.toDouble())
+
+			a.release()
+			b.release()
+			cOld.release()
+			cNew.release()
+			rhs.release()
+			y.release()
+			diff.release()
 		}
+
+		return result ?: throw IllegalStateException("Calculation failed")
 	}
 
 	private fun computeRhsForComputedValues(A: FloatBuffer, x: FloatBuffer, size: Int) : FloatArray {
@@ -378,8 +404,20 @@ object Main {
 	}
 }
 
+class JacobiInterpolator(val a: DoubleArray, val b: DoubleArray, val c: DoubleArray, val h: Double) {
+	operator fun invoke(x: Double): Double {
+		val i = (x / h).toInt() + 1
+		val lowerBound = (i - 1) * h
+		val upperBound = lowerBound + h
+
+		return (1.0 / (6.0 * h)) * c[i] * (x - lowerBound) * (x - lowerBound) * (x - lowerBound) +
+			   (1.0 / (6.0 * h)) * c[i - 1] * (upperBound - x) * (upperBound - x) * (upperBound - x) +
+				b[i] * (x - 0.5 * (lowerBound + upperBound)) + a[i]
+	}
+}
+
 fun main(args: Array<String>) {
-	Main.jacobiSpline(16, 2f)
+	JacobiKernel.jacobiSpline(16, 2f)
 }
 
 fun jacobiExamples() {
@@ -393,7 +431,7 @@ fun jacobiExamples() {
 				6.0f,
 				15.0f
 		).toFloatArray()
-		Main.jacobi(b.size, A, b)
+		JacobiKernel.jacobi(b.size, A, b)
 	}
 
 	println("\n\n############\n")
@@ -411,12 +449,12 @@ fun jacobiExamples() {
 				0f,
 				1f
 		).toFloatArray()
-		Main.jacobi(b.size, A, b)
+		JacobiKernel.jacobi(b.size, A, b)
 	}
 
 	println("\n\n############\n")
-	Main.jacobi(32)
+	JacobiKernel.jacobi(32)
 
 	println("\n\n############\n")
-	println("\nEquation System of size 1024 took ${measureTimeMillis { Main.jacobi(1024) }}ms to solve")
+	println("\nEquation System of size 1024 took ${measureTimeMillis { JacobiKernel.jacobi(1024) }}ms to solve")
 }

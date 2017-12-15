@@ -1,7 +1,9 @@
+
 import com.jogamp.opencl.*
 import java.io.FileNotFoundException
 import java.io.InputStream
 import java.lang.invoke.MethodHandles
+import java.nio.FloatBuffer
 
 fun clContext(platform: Int = 0, op: CLContext.() -> Unit): CLContext {
 	val context = CLContext.create(CLPlatform.listCLPlatforms()[platform])
@@ -62,6 +64,26 @@ class KernelDSL(private val kernel: CLKernel) {
 operator fun CLContext.invoke(op: CLContext.() -> Unit): CLContext {
 	op()
 	return this
+}
+
+fun FloatBuffer.toFloatArray(): FloatArray {
+	val list = mutableListOf<Float>()
+
+	while (hasRemaining())
+		list.add(get())
+
+	rewind()
+	return list.toFloatArray()
+}
+
+fun FloatBuffer.toDoubleArray(): DoubleArray {
+	val list = mutableListOf<Double>()
+
+	while (hasRemaining())
+		list.add(get().toDouble())
+
+	rewind()
+	return list.toDoubleArray()
 }
 
 fun String.asFileStream(): InputStream = loadFileStream(this)

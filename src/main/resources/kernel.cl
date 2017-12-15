@@ -47,7 +47,7 @@ kernel void difference(global float* xOld, global float* xNew, global float* dif
 kernel void initRHS(global float* y, global float* rhs, float h) {
     int i = get_global_id(0);
 
-    if(i == 0 || i == get_global_size(0)) {
+    if(i == 0 || i == get_global_size(0) - 1) {
         rhs[i] = 0.0f;
     } else {
         rhs[i] = (6.0f / h * h) * (y[i + 1] - 2 * y[i] + y[i - 1]);
@@ -63,7 +63,9 @@ kernel void jacobiSplineStep(global float* rhs, global float* cOld, global float
 kernel void computeAB(global float* y, global float* c, global float* a, global float* b, float h) {
     int i = get_global_id(0);
 
-    float bi = (1.0f / h) * (y[i] - y[i - 1]) - (h / 6.0f) * (c[i] - c[i - 1]);
-    b[i] = bi;
-    a[i] = y[i - 1] + (0.5f * bi * h) - (0.166666667f * c[i - 1] * h * h);
+    if(i > 0) {
+        float bi = (1.0f / h) * (y[i] - y[i - 1]) - (h / 6.0f) * (c[i] - c[i - 1]);
+        b[i] = bi;
+        a[i] = y[i - 1] + (0.5f * bi * h) - (0.166666667f * c[i - 1] * h * h);
+    }
 }

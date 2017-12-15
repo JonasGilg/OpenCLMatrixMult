@@ -297,6 +297,8 @@ object JacobiKernel {
 				}
 			} while (reduceDiffBuffer(diff.buffer) > eps && currIt++ < maxIt)
 
+			println(currIt)
+
 			queue.enqueue {
 				kernel1DRange(computeABKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
 
@@ -410,8 +412,8 @@ class JacobiInterpolator(val a: DoubleArray, val b: DoubleArray, val c: DoubleAr
 		val lowerBound = (i - 1) * h
 		val upperBound = lowerBound + h
 
-		return (1.0 / (6.0 * h)) * c[i] * (x - lowerBound) * (x - lowerBound) * (x - lowerBound) +
-			   (1.0 / (6.0 * h)) * c[i - 1] * (upperBound - x) * (upperBound - x) * (upperBound - x) +
+		return (1.0 / (6.0 * h)) * c[i] * ((x - lowerBound) * (x - lowerBound) * (x - lowerBound)) +
+			   (1.0 / (6.0 * h)) * c[i - 1] * ((upperBound - x) * (upperBound - x) * (upperBound - x)) +
 				b[i] * (x - 0.5 * (lowerBound + upperBound)) + a[i]
 	}
 }

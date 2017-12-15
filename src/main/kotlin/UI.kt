@@ -30,8 +30,23 @@ class MainView : View("Jacobi Splines") {
 			vbox {
 				alignment = Pos.CENTER
 				label("Num Points")
-				spinner(2, 25, defaultSize, 1, true, numSliders, true) {
+				spinner(2, 20, defaultSize, 1, true, numSliders, true) {
 					prefWidth = 60.0
+				}
+
+				separator(Orientation.HORIZONTAL) { paddingBottom = 5; paddingTop = 10;}
+
+				button("Calculate").action {
+					val interpolator = JacobiKernel.jacobiSpline(pointList.map { it.value }.toDoubleArray(), pointDistance.value)
+
+					gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
+
+					for (x in 0 until (canvasWidth - pointDistance.value).toInt()) {
+						val y = -interpolator(x.toDouble())
+						gc.fillOval(x.toDouble(), y / 1000 + canvasHeight / 2, 2.0, 2.0)
+					}
+
+					drawPoints()
 				}
 			}
 
@@ -49,21 +64,6 @@ class MainView : View("Jacobi Splines") {
 		center = canvas(canvasWidth, canvasHeight) {
 			gc = graphicsContext2D
 		}
-
-		bottom = buttonbar {
-			button("Calculate").action {
-				val interpolator = JacobiKernel.jacobiSpline(pointList.map { it.value }.toDoubleArray(), pointDistance.value)
-
-				gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
-
-				for (x in 0 until (canvasWidth - pointDistance.value).toInt()) {
-					val y = interpolator(x.toDouble())
-					gc.fillOval(x.toDouble(), y / 1000 + canvasHeight / 2, 2.0, 2.0)
-				}
-
-				drawPoints()
-			}
-		}
 	}
 
 	init {
@@ -76,9 +76,9 @@ class MainView : View("Jacobi Splines") {
 				pointList.add(point)
 
 				point.addListener { _, oldValue, newValue ->
-					gc.clearRect(pointDistance.value * i, oldValue.toDouble() + canvasHeight / 2, 2.0, 2.0)
+					gc.clearRect(pointDistance.value * i, -oldValue.toDouble() + canvasHeight / 2, 2.0, 2.0)
 					gc.fill = Color.RED
-					gc.fillOval(pointDistance.value * i, newValue.toDouble() + canvasHeight / 2, 2.0, 2.0)
+					gc.fillOval(pointDistance.value * i, -newValue.toDouble() + canvasHeight / 2, 2.0, 2.0)
 					gc.fill = Color.BLACK
 				}
 
@@ -91,7 +91,7 @@ class MainView : View("Jacobi Splines") {
 	private fun drawPoints() {
 		pointList.forEachIndexed { i, prop ->
 			gc.fill = Color.RED
-			gc.fillOval(pointDistance.value * i, prop.value + canvasHeight / 2, 2.0, 2.0)
+			gc.fillOval(pointDistance.value * i, -prop.value + canvasHeight / 2, 2.0, 2.0)
 			gc.fill = Color.BLACK
 		}
 	}

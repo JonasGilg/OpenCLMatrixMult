@@ -57,7 +57,9 @@ kernel void initRHS(global float* y, global float* rhs, float h) {
 kernel void jacobiSplineStep(global float* rhs, global float* cOld, global float* cNew) {
     int i = get_global_id(0);
 
-    cNew[i] = (rhs[i] - cOld[i - 1] - cOld[i + 1]) / 4.0f;
+    if(i > 0) {
+        cNew[i] = (rhs[i] - cOld[i - 1] - cOld[i + 1]) / 4.0f;
+    }
 }
 
 kernel void computeAB(global float* y, global float* c, global float* a, global float* b, float h) {
@@ -66,6 +68,6 @@ kernel void computeAB(global float* y, global float* c, global float* a, global 
     if(i > 0) {
         float bi = (1.0f / h) * (y[i] - y[i - 1]) - (h / 6.0f) * (c[i] - c[i - 1]);
         b[i] = bi;
-        a[i] = y[i - 1] + (0.5f * bi * h) - (0.166666667f * c[i - 1] * h * h);
+        a[i] = y[i - 1] + (0.5f * bi * h) - (0.1667f * c[i - 1] * h * h);
     }
 }

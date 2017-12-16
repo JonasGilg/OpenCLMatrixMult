@@ -1,7 +1,12 @@
+
 import javafx.application.Application
+import javafx.beans.binding.DoubleBinding
 import javafx.beans.property.DoubleProperty
+import javafx.beans.property.IntegerProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.SimpleIntegerProperty
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.scene.canvas.GraphicsContext
@@ -15,23 +20,20 @@ class MainView : View("Jacobi Splines") {
 	val canvasWidth = 900.0
 	val canvasHeight = 500.0
 
-	val knotList = mutableListOf<DoubleProperty>().observable()
+	/** List of values for the knots */
+	val knotList: ObservableList<DoubleProperty> = FXCollections.observableArrayList()
 
-	val numSliders by lazy {
+	/** number of knots used by the spinner */
+	val numKnots: IntegerProperty by lazy {
 		val prop = SimpleIntegerProperty()
 		prop.addListener { _, oldValue, newValue ->
 			if (newValue.toInt() > oldValue.toInt()) {
 				val count = newValue.toInt() - oldValue.toInt()
-				for (i in 0 until count) {
-					val point = SimpleDoubleProperty(0.0)
-					point.onChange { draw() }
-					knotList.add(point)
-				}
+				for (i in 0 until count) knotList += createKnot()
+
 			} else {
 				val count = oldValue.toInt() - newValue.toInt()
-				for (i in 0 until count) {
-					knotList.removeAt(knotList.size - 1)
-				}
+				for (i in 0 until count) knotList.removeAt(knotList.size - 1)
 			}
 
 			draw()
@@ -39,10 +41,8 @@ class MainView : View("Jacobi Splines") {
 		prop
 	}
 
-	val knotDistance = canvasWidth.toProperty() / numSliders
-	val knotDistanceHalf = knotDistance / 2
-
-	lateinit var gc: GraphicsContext
+	val knotDistance: DoubleBinding = canvasWidth.toProperty() / numKnots
+	val knotDistanceHalf: DoubleBinding = knotDistance / 2
 
 	override val root = borderpane {
 		paddingAll = 10
@@ -54,8 +54,8 @@ class MainView : View("Jacobi Splines") {
 			vbox {
 				alignment = Pos.CENTER
 
-				label("Num Points")
-				spinner(2, 32, defaultSize, 1, true, numSliders, true) {
+				label("Num Knots")
+				spinner(2, 35, defaultSize, 1, true, numKnots, true) {
 					prefWidth = 60.0
 				}
 			}
@@ -71,18 +71,27 @@ class MainView : View("Jacobi Splines") {
 
 		center = canvas(canvasWidth, canvasHeight) {
 			gc = graphicsContext2D
-			numSliders.value = defaultSize
+			numKnots.value = defaultSize
 		}
 	}
 
+	/** Used for drawing on the canvas */
+	lateinit var gc: GraphicsContext
+
+	/**
+	 * Draws the line and dots onto the canvas
+	 */
 	private fun draw() {
 		gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
 		drawLine()
 		drawKnots()
 	}
 
+	/**
+	 * Draws the black line onto the canvas
+	 */
 	private fun drawLine() {
-		val interpolator = JacobiKernel.jacobiSpline(knotList.map { it.value }.toDoubleArray(), knotDistance.value)
+		val interpolator = JacobiSplineKernel.jacobiSpline(knotList.map { it.value }.toDoubleArray(), knotDistance.value.toFloat())
 		var lastY = -interpolator(0.0) + canvasHeight / 2
 
 		for (x in 1 until (canvasWidth - knotDistance.value).toInt()) {
@@ -97,22 +106,32 @@ class MainView : View("Jacobi Splines") {
 		}
 	}
 
+	/**
+	 * Draws the red dots onto the canvas
+	 */
 	private fun drawKnots() {
 		knotList.forEachIndexed { i, prop ->
 			val pointThickness = 6.0
 			val pointOffset = pointThickness / 2
 
 			gc.fill = Color.RED
-
 			gc.fillOval(
 					knotDistance.value * i + knotDistanceHalf.value - pointOffset,
 					-prop.value + canvasHeight / 2 - pointOffset,
 					pointThickness,
 					pointThickness
 			)
-
 			gc.fill = Color.BLACK
 		}
+	}
+
+	/**
+	 * Creates a new knot
+	 */
+	private fun createKnot(): DoubleProperty {
+		val knot = SimpleDoubleProperty(0.0)
+		knot.onChange { draw() }
+		return knot
 	}
 }
 

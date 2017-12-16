@@ -1,3 +1,4 @@
+
 import javafx.application.Application
 import javafx.beans.property.DoubleProperty
 import javafx.beans.property.SimpleDoubleProperty
@@ -12,8 +13,8 @@ class AppStarter : App(MainView::class)
 
 class MainView : View("Jacobi Splines") {
 	val defaultSize = 5
-	val canvasWidth = 700.0
-	val canvasHeight = 200.0
+	val canvasWidth = 900.0
+	val canvasHeight = 500.0
 	val numSliders = SimpleIntegerProperty()
 	val pointDistance = canvasWidth.toProperty() / numSliders
 	val pointList = mutableListOf<DoubleProperty>().observable()
@@ -22,7 +23,7 @@ class MainView : View("Jacobi Splines") {
 
 	override val root = borderpane {
 		paddingAll = 10
-		setPrefSize(800.0, 600.0)
+		setPrefSize(1024.0, 768.0)
 
 		top = hbox(20) {
 			alignment = Pos.CENTER_LEFT
@@ -30,23 +31,8 @@ class MainView : View("Jacobi Splines") {
 			vbox {
 				alignment = Pos.CENTER
 				label("Num Points")
-				spinner(2, 20, defaultSize, 1, true, numSliders, true) {
+				spinner(2, 32, defaultSize, 1, true, numSliders, true) {
 					prefWidth = 60.0
-				}
-
-				separator(Orientation.HORIZONTAL) { paddingBottom = 5; paddingTop = 10;}
-
-				button("Calculate").action {
-					val interpolator = JacobiKernel.jacobiSpline(pointList.map { it.value }.toDoubleArray(), pointDistance.value)
-
-					gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
-
-					for (x in 0 until (canvasWidth - pointDistance.value).toInt()) {
-						val y = -interpolator(x.toDouble())
-						gc.fillOval(x.toDouble(), y / 1000 + canvasHeight / 2, 2.0, 2.0)
-					}
-
-					drawPoints()
 				}
 			}
 
@@ -67,28 +53,37 @@ class MainView : View("Jacobi Splines") {
 	}
 
 	init {
-		numSliders.onChange {
-			pointList.clear()
-			gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
-
-			for (i in 0 until it) {
-				val point = SimpleDoubleProperty(1.0)
-				pointList.add(point)
-
-				point.addListener { _, oldValue, newValue ->
-					gc.clearRect(pointDistance.value * i, -oldValue.toDouble() + canvasHeight / 2, 2.0, 2.0)
-					gc.fill = Color.RED
-					gc.fillOval(pointDistance.value * i, -newValue.toDouble() + canvasHeight / 2, 2.0, 2.0)
-					gc.fill = Color.BLACK
+		numSliders.addListener { _, oldValue, newValue ->
+			if(newValue.toInt() > oldValue.toInt()) {
+				val count = newValue.toInt() - oldValue.toInt()
+				for (i in 0 until count) {
+					val point = SimpleDoubleProperty(0.0)
+					pointList.add(point)
+					point.onChange { draw()	}
 				}
-
-				point.value = 0.0
+			} else {
+				val count = oldValue.toInt() - newValue.toInt()
+				for (i in 0 until count) {
+					pointList.removeAt(pointList.size - 1)
+				}
 			}
+
+			draw()
 		}
 		numSliders.value = defaultSize
 	}
 
-	private fun drawPoints() {
+	private fun draw() {
+		val interpolator = JacobiKernel.jacobiSpline(pointList.map { it.value }.toDoubleArray(), pointDistance.value)
+		gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
+
+		var lastY = -interpolator(0.0) + canvasHeight / 2
+		for (x in 1 until (canvasWidth - pointDistance.value).toInt()) {
+			val currY = -interpolator(x.toDouble()) + canvasHeight / 2
+			gc.strokeLine(x - 1.0, lastY, x.toDouble(), currY)
+			lastY = currY
+		}
+
 		pointList.forEachIndexed { i, prop ->
 			gc.fill = Color.RED
 			gc.fillOval(pointDistance.value * i, -prop.value + canvasHeight / 2, 2.0, 2.0)

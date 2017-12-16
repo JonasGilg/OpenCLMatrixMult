@@ -184,8 +184,8 @@ object JacobiKernel {
 
 			val a = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
 			val b = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
-			val cOld = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
-			val cNew = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
+			val c1 = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
+			val c2 = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
 			val rhs = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_WRITE)
 
 			val y = createFloatBuffer(globalWorkSizeD, CLMemory.Mem.READ_ONLY)
@@ -202,29 +202,18 @@ object JacobiKernel {
 				y.buffer.rewind()
 			}
 
-			//y.buffer.toFloatArray().forEach { println(it) }
-
 			initKernel.args {
-				arg(cOld)
+				arg(c1)
 				rewind()
 			}
 			queue.enqueue {
-				writeBuffer(cOld)
+				writeBuffer(c1)
 				kernel1DRange(initKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
 				flush()
 				finish()
 			}
 
-			initKernel.args {
-				arg(cNew)
-				rewind()
-			}
-			queue.enqueue {
-				writeBuffer(cNew)
-				kernel1DRange(initKernel, 0, globalWorkSizeD.toLong(), localWorkSizeD.toLong())
-				flush()
-				finish()
-			}
+			c2.buffer.put(0, 0.0f)
 
 			initRHSKernel.args {
 				arg(y)
@@ -235,21 +224,21 @@ object JacobiKernel {
 
 			jacobiSplineStepKernelA.args {
 				arg(rhs)
-				arg(cOld)
-				arg(cNew)
+				arg(c1)
+				arg(c2)
 				rewind()
 			}
 
 			jacobiSplineStepKernelB.args {
 				arg(rhs)
-				arg(cNew)
-				arg(cOld)
+				arg(c2)
+				arg(c1)
 				rewind()
 			}
 
 			computeABKernel.args {
 				arg(y)
-				arg(cOld)
+				arg(c1)
 				arg(a)
 				arg(b)
 				arg(h)
@@ -257,8 +246,8 @@ object JacobiKernel {
 			}
 
 			differenceKernel.args {
-				arg(cOld)
-				arg(cNew)
+				arg(c1)
+				arg(c2)
 				arg(diff)
 				local(localWorkSizeD * Sizeof.cl_float)
 				rewind()
@@ -304,7 +293,7 @@ object JacobiKernel {
 
 				readBuffer(a)
 				readBuffer(b)
-				readBuffer(cOld)
+				readBuffer(c1)
 
 				flush()
 				finish()
@@ -313,13 +302,13 @@ object JacobiKernel {
 			result = JacobiInterpolator(
 					a.buffer.toDoubleArray(),
 					b.buffer.toDoubleArray(),
-					cOld.buffer.toDoubleArray(),
+					c1.buffer.toDoubleArray(),
 					h.toDouble())
 
 			a.release()
 			b.release()
-			cOld.release()
-			cNew.release()
+			c1.release()
+			c2.release()
 			rhs.release()
 			y.release()
 			diff.release()

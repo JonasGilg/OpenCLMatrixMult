@@ -4,7 +4,7 @@ kernel void init(global float* x) {
     x[get_global_id(0)] = 0;
 }
 
-kernel void jacobiStep(global float* a, global float* b, global float* xNew, global float* xOld, int dimension) {
+kernel void jacobiStep(global const float* a, global const float* b, global float* xNew, global const float* xOld, int dimension) {
     int row = get_global_id(0) / dimension;
     int N = dimension;
 
@@ -18,7 +18,7 @@ kernel void jacobiStep(global float* a, global float* b, global float* xNew, glo
     xNew[row] = (b[row] - sum) / a[row * N + row];
 }
 
-kernel void difference(global float* xOld, global float* xNew, global float* diff, local float* partialSum) {
+kernel void difference(global const float* xOld, global const float* xNew, global float* diff, local float* partialSum) {
     int globalId = get_global_id(0);
     int localId = get_local_id(0);
     int localSize = get_local_size(0);
@@ -54,7 +54,7 @@ kernel void initRHS(global const float* y, global float* rhs, float h) {
     }
 }
 
-kernel void jacobiSplineStep(global float* rhs, global float* cOld, global float* cNew) {
+kernel void jacobiSplineStep(global const float* rhs, global const float* cOld, global float* cNew) {
     int i = get_global_id(0);
 
     if(i > 0) {
@@ -62,7 +62,7 @@ kernel void jacobiSplineStep(global float* rhs, global float* cOld, global float
     }
 }
 
-kernel void computeAB(global float* y, global float* c, global float* a, global float* b, float h) {
+kernel void computeAB(global const float* y, global const float* c, global float* a, global float* b, float h) {
     int i = get_global_id(0);
 
     if(i > 0) {
@@ -70,4 +70,15 @@ kernel void computeAB(global float* y, global float* c, global float* a, global 
         b[i] = bi;
         a[i] = y[i - 1] + (0.5f * bi * h) - (0.1667f * c[i - 1] * h * h);
     }
+}
+
+kernel void interpolate(global const float* a, global const float* b, global const float* c, global float* y, float h) {
+    float x = (float) get_global_id(0);
+    int i = (int) (x / h) + 1;
+    float lowerBound = (i - 1) * h;
+    float upperBound = lowerBound + h;
+
+    y[get_global_id(0)] = (1.0f / (6.0f * h)) * c[i] * ((x - lowerBound) * (x - lowerBound) * (x - lowerBound)) +
+           (1.0f / (6.0f * h)) * c[i - 1] * ((upperBound - x) * (upperBound - x) * (upperBound - x)) +
+           	b[i] * (x - 0.5f * (lowerBound + upperBound)) + a[i];
 }

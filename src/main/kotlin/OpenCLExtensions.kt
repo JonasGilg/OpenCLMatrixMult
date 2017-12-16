@@ -86,6 +86,13 @@ fun FloatBuffer.toDoubleArray(): DoubleArray {
 	return list.toDoubleArray()
 }
 
+fun <T : Number> FloatBuffer.fromArray(array: Array<T>) {
+	array.forEach {
+		put(it.toFloat())
+	}
+	rewind()
+}
+
 fun String.asFileStream(): InputStream = loadFileStream(this)
 fun loadFileStream(path:String): InputStream = MethodHandles.lookup().lookupClass().getResourceAsStream(path) ?: throw FileNotFoundException()
 

@@ -53,11 +53,10 @@ class JacobiSplineKernel : Controller() {
 		val localWorkSize = min(knots.size, maxLocalWorkSize1D)
 		val globalWorkSize = roundUp(localWorkSize, knots.size)
 
-		initC(globalWorkSize, localWorkSize)
-
 		y = context.createFloatBuffer(globalWorkSize, CLMemory.Mem.READ_ONLY)
 		y.buffer.fromArray(knots.toTypedArray())
 
+		initC(globalWorkSize, localWorkSize)
 		initRHS(globalWorkSize, localWorkSize, h)
 		initStepsKernels()
 		initDiff(globalWorkSize, localWorkSize)

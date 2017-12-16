@@ -56,7 +56,6 @@ object JacobiKernel {
 	fun jacobi(dimension: Int, matA: FloatArray? = null, vecB: FloatArray? = null) {
 		context {
 			val localWorkSizeD = min(dimension, maxLocalWorkSize1D)
-			val localWorkSizeDxD = localWorkSizeD * localWorkSizeD
 			val globalWorkSizeD = roundUp(localWorkSizeD, dimension)
 			val globalWorkSizeDxD = globalWorkSizeD * globalWorkSizeD
 
@@ -161,15 +160,7 @@ object JacobiKernel {
 				val extension = if (dimension < 27) "${'a' + i}" else "x${i.toSubscriptString()}"
 				print("$extension = ${String.format("%f", xOld.buffer[i])}${if (i < dimension - 1) ", " else ""}")
 			}
-
 			println()
-			/*println()
-			println("Difference for computed result vs given RHS")
-			val results = computeRhsForComputedValues(A.buffer, xOld.buffer, dimension)
-			for (i in 0 until dimension) {
-				print("${String.format("expected: %.4f, actual: %.4f, difference: %.4f", b.buffer[i], results[i], results[i] - b.buffer[i])}\n")
-			}
-			println()*/
 		}
 	}
 
@@ -317,20 +308,6 @@ object JacobiKernel {
 		return result ?: throw IllegalStateException("Calculation failed")
 	}
 
-	private fun computeRhsForComputedValues(A: FloatBuffer, x: FloatBuffer, size: Int) : FloatArray {
-		val results = FloatArray(size)
-
-		for (i in 0 until size) {
-			var result = 0.0f
-			for (j in 0 until size) {
-				result += A[i * size + j] * x[j]
-			}
-			results[i] = result
-		}
-
-		return results
-	}
-
 	private fun reduceDiffBuffer(floatBuffer: FloatBuffer): Double {
 		var sum = 0.0
 		while (floatBuffer.hasRemaining()) {
@@ -350,21 +327,6 @@ object JacobiKernel {
 		for (i in 0 until dimension)
 			buffer.put(i * dimension + i, ((1 + random.nextFloat() + dimension * dimension) * randomRange).toFloat())
 		buffer.rewind()
-	}
-
-	private fun getMatrixAsString(a: FloatBuffer, dimension: Int): String = buildString {
-		for (row in 0 until dimension) {
-			append("[")
-			for (col in 0 until dimension)
-				append(" ${a[row * dimension + col].format(6, 2)} ")
-			append("]\n")
-		}
-	}
-
-	private fun getVectorAsString(v: FloatBuffer): String = buildString {
-		while (v.hasRemaining())
-			append("[ ${v.get().format(6, 2)} ]\n")
-		v.rewind()
 	}
 
 	private fun getEquationAsString(a: FloatBuffer, b: FloatBuffer, dimension: Int): String = buildString {
@@ -408,7 +370,7 @@ class JacobiInterpolator(val a: DoubleArray, val b: DoubleArray, val c: DoubleAr
 }
 
 fun main(args: Array<String>) {
-	JacobiKernel.jacobiSpline(16, 2f)
+	jacobiExamples()
 }
 
 fun jacobiExamples() {
@@ -447,5 +409,5 @@ fun jacobiExamples() {
 	JacobiKernel.jacobi(32)
 
 	println("\n\n############\n")
-	println("\nEquation System of size 1024 took ${measureTimeMillis { JacobiKernel.jacobi(1024) }}ms to solve")
+	println("\nEquation system of size 1024 took ${measureTimeMillis { JacobiKernel.jacobi(1024) }}ms to solve")
 }

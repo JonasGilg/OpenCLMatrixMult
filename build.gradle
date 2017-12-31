@@ -21,9 +21,34 @@ repositories {
 
 mainClassName = 'AppStarter'
 
+import org.gradle.internal.os.OperatingSystem
+
+def lwjglNatives
+switch ( OperatingSystem.current() ) {
+	case OperatingSystem.WINDOWS:
+		lwjglNatives = "natives-windows"
+		break
+	case OperatingSystem.LINUX:
+		lwjglNatives = "natives-linux"
+		break
+	case OperatingSystem.MAC_OS:
+		lwjglNatives = "natives-macos"
+		break
+}
+
+project.ext.lwjglVersion = "3.1.5"
+
 dependencies {
 	compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 	compile 'no.tornado:tornadofx:1.7.13'
+
+	compile "org.lwjgl:lwjgl:$lwjglVersion"
+	compile "org.lwjgl:lwjgl-glfw:$lwjglVersion"
+	compile "org.lwjgl:lwjgl-opengl:$lwjglVersion"
+	compile "org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives"
+	compile "org.lwjgl:lwjgl-glfw:$lwjglVersion:$lwjglNatives"
+	compile "org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNatives"
+
 	compile group: 'org.jocl', name: 'jocl', version: '2.0.0'
 	compile group: 'org.jogamp.jocl', name: 'jocl-main', version: '2.3.2'
 	compile group: 'org.jogamp.jocl', name: 'jocl', version: '2.3.2'

@@ -203,9 +203,7 @@ object JacobiKernel {
 	}
 }
 
-fun main(args: Array<String>) {
-	jacobiExamples()
-}
+fun main(args: Array<String>) = jacobiExamples()
 
 fun jacobiExamples() {
 	run {

@@ -2,9 +2,12 @@
 import javafx.beans.property.SimpleObjectProperty
 import javafx.geometry.Rectangle2D
 import org.intellij.lang.annotations.Language
-import org.lwjgl.glfw.GLFW
+import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.*
+import org.lwjgl.opengl.GL.*
+import org.lwjgl.opengl.GL11.*
+import org.lwjgl.opengl.GL20.*
 import org.lwjgl.system.MemoryUtil
 import tornadofx.*
 import java.nio.FloatBuffer
@@ -25,27 +28,27 @@ class OpenGLController : Controller() {
 		glEventQueue.enqueue {
 			GLFWErrorCallback.createPrint(System.err).set()
 
-			if (!GLFW.glfwInit()) throw IllegalStateException("Unable to initialize GLFW")
+			if (!glfwInit()) throw IllegalStateException("Unable to initialize GLFW")
 
-			GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE)
-			GLFW.glfwWindowHint(GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE)
+			glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE)
+			glfwWindowHint(GLFW_DECORATED, GLFW_FALSE)
 
 			windowDimensions.value = windowBounds
-			window = GLFW.glfwCreateWindow(windowDimensions.value.width.toInt(), windowDimensions.value.height.toInt(), "Hello World", MemoryUtil.NULL, MemoryUtil.NULL)
+			window = glfwCreateWindow(windowDimensions.value.width.toInt(), windowDimensions.value.height.toInt(), "Hello World", MemoryUtil.NULL, MemoryUtil.NULL)
 
 			windowDimensions.onChange {
 				glEventQueue.enqueue {
-					GLFW.glfwSetWindowPos(window, windowDimensions.value.minX.toInt(), windowDimensions.value.minY.toInt())
-					GLFW.glfwSetWindowSize(window, windowDimensions.value.width.toInt(), windowDimensions.value.height.toInt())
+					glfwSetWindowPos(window, windowDimensions.value.minX.toInt(), windowDimensions.value.minY.toInt())
+					glfwSetWindowSize(window, windowDimensions.value.width.toInt(), windowDimensions.value.height.toInt())
 				}
 			}
 
-			GLFW.glfwSetWindowSizeCallback(window) { _, width, height -> GL11.glViewport(0, 0, width, height) }
+			glfwSetWindowSizeCallback(window) { _, width, height -> glViewport(0, 0, width, height) }
 
-			GLFW.glfwMakeContextCurrent(window)
-			GLFW.glfwShowWindow(window)
+			glfwMakeContextCurrent(window)
+			glfwShowWindow(window)
 
-			GL.createCapabilities()
+			createCapabilities()
 
 			initShaderProgram()
 
@@ -64,30 +67,30 @@ class OpenGLController : Controller() {
 			vbo = GL15.glGenBuffers()
 			GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo)
 			GL15.glBufferData(GL15.GL_ARRAY_BUFFER, vb, GL15.GL_STATIC_DRAW)
-			GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 0, 0)
+			glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0)
 
-			GL20.glEnableVertexAttribArray(0)
+			glEnableVertexAttribArray(0)
 
 			MemoryUtil.memFree(vb)
 
-			GL11.glClearColor(0f, 0f, 0f, 0f)
-			GL11.glPointSize(10f)
-			GL11.glEnable(GL11.GL_POINT_SMOOTH)
+			glClearColor(0f, 0f, 0f, 0f)
+			glPointSize(10f)
+			glEnable(GL_POINT_SMOOTH)
 
 			glEventQueue.setLoopFunction {
-				GL11.glClear(GL11.GL_COLOR_BUFFER_BIT or GL11.GL_DEPTH_BUFFER_BIT)
+				glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
-				GL20.glUniform4f(0, 0f, 1f, 0f, 1f)
-				GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3)
+				glUniform4f(0, 0f, 1f, 0f, 1f)
+				glDrawArrays(GL_TRIANGLES, 0, 3)
 
-				GL20.glUniform4f(0, 1f, 1f, 1f, 1f)
-				GL11.glDrawArrays(GL11.GL_LINE_LOOP, 0, 3)
+				glUniform4f(0, 1f, 1f, 1f, 1f)
+				glDrawArrays(GL_LINE_LOOP, 0, 3)
 
-				GL20.glUniform4f(0, 1f, 0f, 0f, 1f)
-				GL11.glDrawArrays(GL11.GL_POINTS, 0, 3)
+				glUniform4f(0, 1f, 0f, 0f, 1f)
+				glDrawArrays(GL_POINTS, 0, 3)
 
-				GLFW.glfwSwapBuffers(window)
-				GLFW.glfwPollEvents()
+				glfwSwapBuffers(window)
+				glfwPollEvents()
 			}
 
 			isInitialized = true
@@ -95,18 +98,18 @@ class OpenGLController : Controller() {
 	}
 
 	private fun initShaderProgram() {
-		program = GL20.glCreateProgram()
-		createShader(VERTEX_SHADER_SOURCE, GL20.GL_VERTEX_SHADER)
-		createShader(FRAGMENT_SHADER_SOURCE, GL20.GL_FRAGMENT_SHADER)
-		GL20.glLinkProgram(program)
-		GL20.glUseProgram(program)
+		program = glCreateProgram()
+		createShader(VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
+		createShader(FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
+		glLinkProgram(program)
+		glUseProgram(program)
 	}
 
 	private fun createShader(code: String, type: Int): Int {
-		val shader = GL20.glCreateShader(type)
-		GL20.glShaderSource(shader, code)
-		GL20.glCompileShader(shader)
-		GL20.glAttachShader(program, shader)
+		val shader = glCreateShader(type)
+		glShaderSource(shader, code)
+		glCompileShader(shader)
+		glAttachShader(program, shader)
 		return shader
 	}
 

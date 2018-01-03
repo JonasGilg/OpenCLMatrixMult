@@ -1,4 +1,3 @@
-
 import javafx.application.Application
 import javafx.beans.binding.DoubleBinding
 import javafx.beans.property.DoubleProperty
@@ -9,44 +8,59 @@ import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
-import javafx.scene.canvas.GraphicsContext
-import javafx.scene.paint.Color
+import javafx.geometry.Rectangle2D
+import javafx.scene.input.KeyCode
+import javafx.stage.Stage
 import tornadofx.*
 
-class AppStarter : App(MainView::class)
+class AppStarter : App(MainView::class) {
+	override fun stop() {
+		super.stop()
+		System.exit(0)
+	}
+}
 
 class MainView : View("Jacobi Splines") {
-	val defaultSize = 5
-	val canvasWidth = 900.0
-	val canvasHeight = 500.0
+	private val defaultSize = 5
 
 	/** List of values for the knots */
-	val knotList: ObservableList<DoubleProperty> = FXCollections.observableArrayList()
+	private val knotList: ObservableList<DoubleProperty> = FXCollections.observableArrayList()
+
+	private val glController by inject<OpenGLController>()
+	private val clController by inject<JacobiSplineKernel>()
 
 	/** number of knots used by the spinner */
-	val numKnots: IntegerProperty by lazy {
+	private val numKnots: IntegerProperty by lazy {
 		val prop = SimpleIntegerProperty()
 		prop.addListener { _, oldValue, newValue ->
 			if (newValue.toInt() > oldValue.toInt()) {
 				val count = newValue.toInt() - oldValue.toInt()
-				for (i in 0 until count) knotList += createKnot()
-
+				for (i in 0 until count) knotList += SimpleDoubleProperty(0.0)
 			} else {
 				val count = oldValue.toInt() - newValue.toInt()
 				for (i in 0 until count) knotList.removeAt(knotList.size - 1)
 			}
-
-			draw()
 		}
 		prop
 	}
 
-	val knotDistance: DoubleBinding = canvasWidth.toProperty() / numKnots
-	val knotDistanceHalf: DoubleBinding = knotDistance / 2
+	private val knotDistance: DoubleBinding = 2.0.toProperty() / numKnots
+	private val knotDistanceHalf: DoubleBinding = knotDistance / 2
+
+	init {
+		glController.init()
+		while (!glController.isInitialized) Thread.yield()
+		updateGLWindowBounds()
+		primaryStage.xProperty().onChange { updateGLWindowBounds() }
+		primaryStage.yProperty().onChange { updateGLWindowBounds() }
+		primaryStage.widthProperty().onChange { updateGLWindowBounds() }
+		primaryStage.heightProperty().onChange { updateGLWindowBounds() }
+		numKnots.value = defaultSize
+	}
 
 	override val root = borderpane {
 		paddingAll = 10
-		setPrefSize(1024.0, 768.0)
+		setPrefSize(1024.0, 160.0)
 
 		top = hbox(20) {
 			alignment = Pos.CENTER_LEFT
@@ -64,68 +78,18 @@ class MainView : View("Jacobi Splines") {
 
 			hbox(10) {
 				bindChildren(knotList) {
-					slider(-canvasHeight / 2, canvasHeight / 2, null, Orientation.VERTICAL) { bind(it) }
+					slider(-1.0, 1.0, null, Orientation.VERTICAL) { bind(it) }
 				}
 			}
 		}
+	}
 
-		center = canvas(canvasWidth, canvasHeight) {
-			gc = graphicsContext2D
-			numKnots.value = defaultSize
+	private fun updateGLWindowBounds() {
+		with(primaryStage) {
+			glController.windowDimensions.value = Rectangle2D(
+					x, y + height,
+					width, width * 9 / 16)
 		}
-	}
-
-	/** Used for drawing on the canvas */
-	lateinit var gc: GraphicsContext
-
-	/**
-	 * Draws the line and dots onto the canvas
-	 */
-	private fun draw() {
-		gc.clearRect(0.0, 0.0, canvasWidth, canvasHeight)
-		drawLine()
-		drawKnots()
-	}
-
-	/**
-	 * Draws the black line onto the canvas
-	 */
-	private fun drawLine() {
-		val ys = find<JacobiSplineKernel>().jacobiSpline(knotList.map { it.value }.toDoubleArray(), knotDistance.value.toFloat(), (canvasWidth - knotDistance.value).toInt())
-		for (x in 1 until ys.size) {
-			gc.strokeLine(
-					x - 1.0 + knotDistanceHalf.value, -ys[x - 1] + canvasHeight / 2,
-					x.toDouble() + knotDistanceHalf.value, -ys[x] + canvasHeight / 2
-			)
-		}
-	}
-
-	/**
-	 * Draws the red dots onto the canvas
-	 */
-	private fun drawKnots() {
-		knotList.forEachIndexed { i, prop ->
-			val pointThickness = 6.0
-			val pointOffset = pointThickness / 2
-
-			gc.fill = Color.RED
-			gc.fillOval(
-					knotDistance.value * i + knotDistanceHalf.value - pointOffset,
-					-prop.value + canvasHeight / 2 - pointOffset,
-					pointThickness,
-					pointThickness
-			)
-			gc.fill = Color.BLACK
-		}
-	}
-
-	/**
-	 * Creates a new knot
-	 */
-	private fun createKnot(): DoubleProperty {
-		val knot = SimpleDoubleProperty(0.0)
-		knot.onChange { draw() }
-		return knot
 	}
 }
 

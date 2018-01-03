@@ -24,6 +24,7 @@ class JacobiSplineKernel : Controller() {
 			println(platform)
 			println(maxFlopsDevice)
 			println()
+
 			queue = maxFlopsDevice.createCommandQueue()
 
 			maxLocalWorkSize1D = maxFlopsDevice.maxWorkGroupSize

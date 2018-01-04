@@ -1,16 +1,17 @@
-import com.jogamp.opencl.*
-import org.jocl.Sizeof
+
+import com.jogamp.opencl.CLCommandQueue
+import com.jogamp.opencl.CLContext
+import com.jogamp.opencl.CLKernel
+import com.jogamp.opencl.CLProgram
 import java.nio.FloatBuffer
 import java.util.*
 import kotlin.math.ceil
 import kotlin.math.log10
-import kotlin.math.min
-import kotlin.math.sqrt
 import kotlin.system.measureTimeMillis
 
 
 object JacobiKernel {
-	private val context: CLContext
+	private val context: CLContext = CLContext.create()
 	private lateinit var queue: CLCommandQueue
 	private lateinit var program: CLProgram
 	private lateinit var initKernel: CLKernel
@@ -25,7 +26,7 @@ object JacobiKernel {
 	private const val randomRange = 100.0
 
 	init {
-		context = clContext {
+		/*context = clContext {
 			println(platform)
 			println(maxFlopsDevice)
 			println()
@@ -40,11 +41,11 @@ object JacobiKernel {
 			jacobiStepKernelB = program.createCLKernel("jacobiStep")
 			differenceKernel = program.createCLKernel("difference")
 
-		}
+		}*/
 	}
 
 	fun jacobi(dimension: Int, matA: FloatArray? = null, vecB: FloatArray? = null) {
-		context {
+		/*context {
 			val localWorkSizeD = min(dimension, maxLocalWorkSize1D)
 			val globalWorkSizeD = roundUp(localWorkSizeD, dimension)
 			val globalWorkSizeDxD = globalWorkSizeD * globalWorkSizeD
@@ -151,7 +152,7 @@ object JacobiKernel {
 				print("$extension = ${String.format("%f", xOld.buffer[i])}${if (i < dimension - 1) ", " else ""}")
 			}
 			println()
-		}
+		}*/
 	}
 
 	private fun reduceDiffBuffer(floatBuffer: FloatBuffer): Double {

@@ -1,5 +1,11 @@
 
-import com.jogamp.opencl.*
+import com.jogamp.opencl.CLBuffer
+import com.jogamp.opencl.CLCommandQueue
+import com.jogamp.opencl.CLKernel
+import com.jogamp.opencl.CLMemory
+import com.jogamp.opencl.gl.CLGLBuffer
+import com.jogamp.opencl.gl.CLGLContext
+import com.jogamp.opengl.GLContext
 import org.jocl.Sizeof
 import tornadofx.*
 import java.nio.FloatBuffer
@@ -7,7 +13,7 @@ import kotlin.math.min
 
 
 class JacobiSplineKernel : Controller() {
-	private val context: CLContext
+	private lateinit var context: CLGLContext
 	private lateinit var queue: CLCommandQueue
 
 	private lateinit var initKernel: CLKernel
@@ -20,8 +26,21 @@ class JacobiSplineKernel : Controller() {
 
 	private var maxLocalWorkSize1D = 256
 
-	init {
-		context = clContext {
+	private lateinit var a: CLBuffer<FloatBuffer>
+	private lateinit var b: CLBuffer<FloatBuffer>
+	private lateinit var c1: CLBuffer<FloatBuffer>
+	private lateinit var c2: CLBuffer<FloatBuffer>
+	private lateinit var rhs: CLBuffer<FloatBuffer>
+	private lateinit var y: CLBuffer<FloatBuffer>
+	private lateinit var diff: CLBuffer<FloatBuffer>
+
+	private lateinit var vboMem: CLGLBuffer<FloatBuffer>
+	private var interpolations: Long = -1L
+	private var delta: Float = -1f
+	private var min: Float = -1f
+
+	fun init(interpolations: Int, glContext: GLContext) {
+		context = clContext(glContext) {
 			println(platform)
 			println(maxFlopsDevice)
 			println()
@@ -40,31 +59,14 @@ class JacobiSplineKernel : Controller() {
 				interpolationKernel = createCLKernel("interpolate")
 			}
 		}
-	}
 
-	private lateinit var a: CLBuffer<FloatBuffer>
-	private lateinit var b: CLBuffer<FloatBuffer>
-	private lateinit var c1: CLBuffer<FloatBuffer>
-	private lateinit var c2: CLBuffer<FloatBuffer>
-	private lateinit var rhs: CLBuffer<FloatBuffer>
-	private lateinit var y: CLBuffer<FloatBuffer>
-	private lateinit var diff: CLBuffer<FloatBuffer>
-
-	private lateinit var xyInterpolated: CLBuffer<FloatBuffer>
-	private var interpolations: Long = -1L
-
-	fun init(interpolations: Int, min: Float, max: Float) {
 		this.interpolations = interpolations.toLong()
-		xyInterpolated = context.createFloatBuffer(interpolations * 2, CLMemory.Mem.READ_WRITE)
-
-		val step = (max - min) / interpolations.toFloat()
-
-		for (i in 0 until interpolations) {
-			xyInterpolated.buffer.put(i * 2, i * step)
-		}
 	}
 
-	fun initVBO(vbo: Int) {
+	fun initVBO(vbo: Int, min: Float, max: Float) {
+		val vboMem = context.createFromGLBuffer(vbo, interpolations * 2 * Sizeof.cl_float, CLMemory.Mem.READ_WRITE)
+		delta = (max - min) / interpolations.toFloat()
+		this.min = min
 	}
 
 	fun jacobiSpline(knots: DoubleArray, h: Float): DoubleArray {
@@ -102,24 +104,31 @@ class JacobiSplineKernel : Controller() {
 		y.release()
 		diff.release()
 
-		return xyInterpolated.buffer.toDoubleArray()
+		return vboMem.buffer.toDoubleArray()
 	}
 
 	private fun interpolate(h: Float) {
 		context {
+			glContext.gl.glFinish()
+
+			queue.enqueue { putAcquireGLObject(vboMem) }
+
 			interpolationKernel.args {
 				arg(a)
 				arg(b)
 				arg(c1)
-				arg(xyInterpolated)
+				arg(vboMem)
 				arg(h)
+				arg(min)
+				arg(delta)
 				rewind()
 			}
 
 			queue.enqueue {
-				writeBuffer(xyInterpolated)
+				writeBuffer(vboMem)
 				kernel1DRange(interpolationKernel, 0, interpolations * 2, min(interpolations * 2, maxLocalWorkSize1D.toLong()))
-				readBuffer(xyInterpolated)
+				putReleaseGLObject(vboMem)
+				finish()
 			}
 		}
 	}

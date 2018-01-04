@@ -1,13 +1,17 @@
 
-import com.jogamp.opencl.*
+import com.jogamp.opencl.CLBuffer
+import com.jogamp.opencl.CLCommandQueue
+import com.jogamp.opencl.CLKernel
+import com.jogamp.opencl.CLProgram
 import com.jogamp.opencl.gl.CLGLContext
+import com.jogamp.opengl.GLContext
 import java.io.FileNotFoundException
 import java.io.InputStream
 import java.lang.invoke.MethodHandles
 import java.nio.FloatBuffer
 
-fun clContext(platform: Int = 0, op: CLContext.() -> Unit): CLContext {
-	val context = CLGLContext.create(CLPlatform.listCLPlatforms()[platform])
+fun clContext(glContext: GLContext, op: CLGLContext.() -> Unit): CLGLContext {
+	val context = CLGLContext.create(glContext)
 	context.op()
 	return context
 }
@@ -62,7 +66,7 @@ class KernelDSL(private val kernel: CLKernel) {
 	}
 }
 
-operator fun CLContext.invoke(op: CLContext.() -> Unit): CLContext {
+operator fun CLGLContext.invoke(op: CLGLContext.() -> Unit): CLGLContext {
 	op()
 	return this
 }

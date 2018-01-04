@@ -3,15 +3,14 @@ import tornadofx.*
 class GLCLInteropController : Controller() {
 	val interpolations = 200
 
-	//val clController by inject<JacobiSplineKernel>()
 	val glController by inject<OpenGLController>()
+	val clController by inject<JacobiSplineKernel>()
 
 	fun init() {
 		glController.init()
-		//clController.init(interpolations, -1.0f, 1.0f)
+		clController.init(interpolations, glController.context)
 
-		//glController.initVBO(interpolations)
-		//val vbo = glController.vbo
-
+		glController.initVBO(interpolations)
+		clController.initVBO(glController.vbo, -1.0f, 1.0f)
 	}
 }

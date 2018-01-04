@@ -1,12 +1,13 @@
 
 import com.jogamp.opencl.*
+import com.jogamp.opencl.gl.CLGLContext
 import java.io.FileNotFoundException
 import java.io.InputStream
 import java.lang.invoke.MethodHandles
 import java.nio.FloatBuffer
 
 fun clContext(platform: Int = 0, op: CLContext.() -> Unit): CLContext {
-	val context = CLContext.create(CLPlatform.listCLPlatforms()[platform])
+	val context = CLGLContext.create(CLPlatform.listCLPlatforms()[platform])
 	context.op()
 	return context
 }

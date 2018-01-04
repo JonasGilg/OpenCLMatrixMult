@@ -1,3 +1,4 @@
+
 import com.jogamp.opencl.*
 import org.jocl.Sizeof
 import tornadofx.*
@@ -47,10 +48,26 @@ class JacobiSplineKernel : Controller() {
 	private lateinit var c2: CLBuffer<FloatBuffer>
 	private lateinit var rhs: CLBuffer<FloatBuffer>
 	private lateinit var y: CLBuffer<FloatBuffer>
-	private lateinit var yInterpolated: CLBuffer<FloatBuffer>
 	private lateinit var diff: CLBuffer<FloatBuffer>
 
-	fun jacobiSpline(knots: DoubleArray, h: Float, interpolations: Int): DoubleArray {
+	private lateinit var xyInterpolated: CLBuffer<FloatBuffer>
+	private var interpolations: Long = -1L
+
+	fun init(interpolations: Int, min: Float, max: Float) {
+		this.interpolations = interpolations.toLong()
+		xyInterpolated = context.createFloatBuffer(interpolations * 2, CLMemory.Mem.READ_WRITE)
+
+		val step = (max - min) / interpolations.toFloat()
+
+		for (i in 0 until interpolations) {
+			xyInterpolated.buffer.put(i * 2, i * step)
+		}
+	}
+
+	fun initVBO(vbo: Int) {
+	}
+
+	fun jacobiSpline(knots: DoubleArray, h: Float): DoubleArray {
 		val localWorkSize = min(knots.size, maxLocalWorkSize1D)
 		val globalWorkSize = roundUp(localWorkSize, knots.size)
 
@@ -75,7 +92,7 @@ class JacobiSplineKernel : Controller() {
 		} while (reduceDiffBuffer(diff.buffer) > eps && currIt++ < maxIt)
 
 		computeAB(globalWorkSize, localWorkSize, h)
-		interpolate(interpolations, h)
+		interpolate(h)
 
 		a.release()
 		b.release()
@@ -85,25 +102,24 @@ class JacobiSplineKernel : Controller() {
 		y.release()
 		diff.release()
 
-		return yInterpolated.buffer.toDoubleArray()
+		return xyInterpolated.buffer.toDoubleArray()
 	}
 
-	private fun interpolate(interpolations: Int, h: Float) {
+	private fun interpolate(h: Float) {
 		context {
-			yInterpolated = createFloatBuffer(interpolations, CLMemory.Mem.READ_WRITE)
 			interpolationKernel.args {
 				arg(a)
 				arg(b)
 				arg(c1)
-				arg(yInterpolated)
+				arg(xyInterpolated)
 				arg(h)
 				rewind()
 			}
 
 			queue.enqueue {
-				writeBuffer(yInterpolated)
-				kernel1DRange(interpolationKernel, 0, interpolations.toLong(), min(interpolations, maxLocalWorkSize1D).toLong())
-				readBuffer(yInterpolated)
+				writeBuffer(xyInterpolated)
+				kernel1DRange(interpolationKernel, 0, interpolations * 2, min(interpolations * 2, maxLocalWorkSize1D.toLong()))
+				readBuffer(xyInterpolated)
 			}
 		}
 	}

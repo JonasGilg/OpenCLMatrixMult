@@ -1,3 +1,4 @@
+
 import javafx.application.Application
 import javafx.beans.binding.DoubleBinding
 import javafx.beans.property.DoubleProperty
@@ -9,12 +10,11 @@ import javafx.collections.ObservableList
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.geometry.Rectangle2D
-import javafx.scene.input.KeyCode
-import javafx.stage.Stage
 import tornadofx.*
 
 class AppStarter : App(MainView::class) {
 	override fun stop() {
+		find<OpenGLController>().close()
 		super.stop()
 		System.exit(0)
 	}
@@ -26,8 +26,8 @@ class MainView : View("Jacobi Splines") {
 	/** List of values for the knots */
 	private val knotList: ObservableList<DoubleProperty> = FXCollections.observableArrayList()
 
+	private val interopController by inject<GLCLInteropController>()
 	private val glController by inject<OpenGLController>()
-	private val clController by inject<JacobiSplineKernel>()
 
 	/** number of knots used by the spinner */
 	private val numKnots: IntegerProperty by lazy {
@@ -46,17 +46,6 @@ class MainView : View("Jacobi Splines") {
 
 	private val knotDistance: DoubleBinding = 2.0.toProperty() / numKnots
 	private val knotDistanceHalf: DoubleBinding = knotDistance / 2
-
-	init {
-		glController.init()
-		while (!glController.isInitialized) Thread.yield()
-		updateGLWindowBounds()
-		primaryStage.xProperty().onChange { updateGLWindowBounds() }
-		primaryStage.yProperty().onChange { updateGLWindowBounds() }
-		primaryStage.widthProperty().onChange { updateGLWindowBounds() }
-		primaryStage.heightProperty().onChange { updateGLWindowBounds() }
-		numKnots.value = defaultSize
-	}
 
 	override val root = borderpane {
 		paddingAll = 10
@@ -82,6 +71,15 @@ class MainView : View("Jacobi Splines") {
 				}
 			}
 		}
+	}
+
+	init {
+		interopController.init()
+		primaryStage.xProperty().onChange { updateGLWindowBounds() }
+		primaryStage.yProperty().onChange { updateGLWindowBounds() }
+		primaryStage.widthProperty().onChange { updateGLWindowBounds() }
+		primaryStage.heightProperty().onChange { updateGLWindowBounds() }
+		numKnots.value = defaultSize
 	}
 
 	private fun updateGLWindowBounds() {

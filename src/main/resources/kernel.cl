@@ -72,13 +72,13 @@ kernel void computeAB(global const float* y, global const float* c, global float
     }
 }
 
-kernel void interpolate(global const float* a, global const float* b, global const float* c, global float* y, float h) {
-    float x = (float) get_global_id(0);
+kernel void interpolate(global const float* a, global const float* b, global const float* c, global float* xy, float h) {
+    float x = xy[get_global_id(0) * 2];
     int i = (int) (x / h) + 1;
     float lowerBound = (i - 1) * h;
     float upperBound = lowerBound + h;
 
-    y[get_global_id(0)] = (1.0f / (6.0f * h)) * c[i] * ((x - lowerBound) * (x - lowerBound) * (x - lowerBound)) +
+    xy[get_global_id(0) * 2 + 1] = (1.0f / (6.0f * h)) * c[i] * ((x - lowerBound) * (x - lowerBound) * (x - lowerBound)) +
            (1.0f / (6.0f * h)) * c[i - 1] * ((upperBound - x) * (upperBound - x) * (upperBound - x)) +
            	b[i] * (x - 0.5f * (lowerBound + upperBound)) + a[i];
 }

@@ -91,7 +91,7 @@ class MainView : View("Jacobi Splines") {
 	 * Draws the black line onto the canvas
 	 */
 	private fun drawLine() {
-		val ys = find<JacobiSplineKernel>().jacobiSpline(knotList.map { it.value }.toDoubleArray(), knotDistance.value.toFloat(), (canvasWidth - knotDistance.value).toInt())
+		val ys = find<JacobiSplineKernelJava>().jacobiSpline(knotList.map { it.value }.toDoubleArray(), knotDistance.value.toFloat(), (canvasWidth - knotDistance.value).toInt())
 		for (x in 1 until ys.size) {
 			gc.strokeLine(
 					x - 1.0 + knotDistanceHalf.value, -ys[x - 1] + canvasHeight / 2,

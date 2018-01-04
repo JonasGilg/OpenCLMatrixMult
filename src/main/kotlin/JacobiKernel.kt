@@ -8,7 +8,6 @@ import kotlin.math.min
 import kotlin.math.sqrt
 import kotlin.system.measureTimeMillis
 
-
 object JacobiKernel {
 	private val context: CLContext
 	private lateinit var queue: CLCommandQueue

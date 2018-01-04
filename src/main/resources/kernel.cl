@@ -1,5 +1,3 @@
-
-
 kernel void init(global float* x) {
     x[get_global_id(0)] = 0;
 }
